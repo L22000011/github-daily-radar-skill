@@ -1,0 +1,33 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Python caches & virtualenvs
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# Generated video runs, logs, temporary media & job states
+output/
+workspace_output/
+.radar_jobs/
+voice_override/
+talkcraft_handoff/
+qa_frames/
+*.mp4
+*.mov
+*.webm
+*.wav
+*.srt
+*.ass
+!assets/**
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

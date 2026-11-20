@@ -1,0 +1,755 @@
+{
+  "name": "GitHub Trending Top 10 -> 9:16 Video Radar Pipeline (Schedule + Form + Human Review)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## GitHub 每日/每周热榜自动抓拍出片工作流\n\n### 两种触发入口\n1. **Weekly Schedule Trigger**：默认每周一 10:00 自动跑周榜 Top 4（可在节点里改为每天 09:00 跑日榜）。\n2. **Manual Radar Form Trigger**：随时手动指定 `daily/weekly`、`Top 3/4/5`、赛道焦点与配音引擎。\n\n### 依赖的本地服务\n需先启动宿主机 API：`python -u scripts/server.py`（监听 `8010`，n8n 容器通过 `http://host.docker.internal:8010` 调用）。\n\n### 合规与人工把关\n- 严格基于 GitHub 官方数据与项目真实页面/演示素材。\n- **Human Review Gate** 强制暂停等待人工审片，支持替换 `voice_override/` 真人录音后一键重渲。\n- 绝不自动发布。",
+        "height": 340,
+        "width": 560
+      },
+      "id": "note-radar",
+      "name": "Sticky Note Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -280
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 10,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "sched-weekly",
+      "name": "Weekly Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -740,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "GitHub Trending 雷达出片表单",
+        "formDescription": "自动抓取 GitHub 日/周 Top 10 仓库事实与演示画面，生成 9:16 竖屏短视频、SRT 字幕与封面，等待人工审核。",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Period",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "weekly"
+                  },
+                  {
+                    "option": "daily"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Top N",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "4"
+                  },
+                  {
+                    "option": "3"
+                  },
+                  {
+                    "option": "5"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Focus",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "ai-dev"
+                  },
+                  {
+                    "option": "all"
+                  },
+                  {
+                    "option": "ai-only"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "TTS Engine",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "edge"
+                  },
+                  {
+                    "option": "dashscope"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "form-radar",
+      "name": "Manual Radar Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [
+        -740,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "norm-1",
+              "name": "period",
+              "value": "={{ $json.Period || 'weekly' }}",
+              "type": "string"
+            },
+            {
+              "id": "norm-2",
+              "name": "top_n",
+              "value": "={{ Number($json['Top N'] || 4) }}",
+              "type": "number"
+            },
+            {
+              "id": "norm-3",
+              "name": "focus",
+              "value": "={{ $json.Focus || 'ai-dev' }}",
+              "type": "string"
+            },
+            {
+              "id": "norm-4",
+              "name": "tts",
+              "value": "={{ $json['TTS Engine'] || 'edge' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-norm",
+      "name": "Normalize Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -460,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8010/api/radar/run",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ period: $json.period, top_n: $json.top_n, focus: $json.focus, tts: $json.tts }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-start-radar",
+      "name": "Start GitHub Radar Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -220,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "init-1",
+              "name": "job_id",
+              "value": "={{ $json.job_id }}",
+              "type": "string"
+            },
+            {
+              "id": "init-2",
+              "name": "out_dir",
+              "value": "={{ $json.out_dir }}",
+              "type": "string"
+            },
+            {
+              "id": "init-3",
+              "name": "max_polls",
+              "value": 30,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-init-poll",
+      "name": "Init Poll State",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        20,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "id": "wait-poll",
+      "name": "Wait 15s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://host.docker.internal:8010/api/radar/status/{{ $('Init Poll State').first().json.job_id }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-poll",
+      "name": "Poll Radar Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const init = $('Init Poll State').first().json;\nconst state = $getWorkflowStaticData('node');\nconst jobId = init.job_id;\nstate[jobId] = (state[jobId] || 0) + 1;\nreturn [{\n  json: {\n    ...$json,\n    job_id: jobId,\n    poll_count: state[jobId],\n    max_polls: init.max_polls || 30\n  }\n}];"
+      },
+      "id": "code-poll-inc",
+      "name": "Update Poll Counter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-done",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-done",
+      "name": "Job Completed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        980,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-fail",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "failed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "cond-to",
+              "leftValue": "={{ $json.poll_count }}",
+              "rightValue": "={{ $json.max_polls }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "if-fail",
+      "name": "Failed or Timed Out?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        980,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "job_id",
+              "value": "={{ $json.job_id }}",
+              "type": "string"
+            },
+            {
+              "id": "f2",
+              "name": "status",
+              "value": "={{ $json.status }}",
+              "type": "string"
+            },
+            {
+              "id": "f3",
+              "name": "last_logs",
+              "value": "={{ ($json.logs || []).slice(-12).join('\\n') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-fail-log",
+      "name": "Log Failure",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1240,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sum-1",
+              "name": "job_id",
+              "value": "={{ $json.job_id }}",
+              "type": "string"
+            },
+            {
+              "id": "sum-2",
+              "name": "out_dir",
+              "value": "={{ $json.out_dir }}",
+              "type": "string"
+            },
+            {
+              "id": "sum-3",
+              "name": "video_title",
+              "value": "={{ $json.manifest?.video_title || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "sum-4",
+              "name": "video_duration_sec",
+              "value": "={{ $json.manifest?.video_duration_sec || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "sum-5",
+              "name": "captioned_mp4",
+              "value": "={{ $json.manifest?.outputs?.final_9x16_captioned || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "sum-6",
+              "name": "review_status",
+              "value": "PENDING_HUMAN_REVIEW",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-summary",
+      "name": "Build Review Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1240,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "GitHub 雷达成片人工审核门禁",
+        "formDescription": "请先在输出目录检查 REVIEW_CHECKLIST.md、MP4、SRT 与封面。如需替换真人配音，请将录音放入 voice_override/ 后选择第二项。",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Decision",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Approve for Manual Export"
+                  },
+                  {
+                    "option": "Swap Human Voice & Re-render"
+                  },
+                  {
+                    "option": "Reject"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Reviewer Notes",
+              "requiredField": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "wait-review",
+      "name": "Human Review Gate",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1480,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-rerender",
+              "leftValue": "={{ $json.Decision }}",
+              "rightValue": "Swap Human Voice & Re-render",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-rerender",
+      "name": "Need Voice Swap Re-render?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1720,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8010/api/radar/rerender/{{ $('Init Poll State').first().json.job_id }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-rerender",
+      "name": "Trigger Voice Swap Re-render",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1720,
+        -120
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fin-1",
+              "name": "decision",
+              "value": "={{ $json.Decision || 'Approve for Manual Export' }}",
+              "type": "string"
+            },
+            {
+              "id": "fin-2",
+              "name": "reviewer_notes",
+              "value": "={{ $json['Reviewer Notes'] || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "fin-3",
+              "name": "out_dir",
+              "value": "={{ $('Build Review Summary').first().json.out_dir }}",
+              "type": "string"
+            },
+            {
+              "id": "fin-4",
+              "name": "publish_policy",
+              "value": "MANUAL_ONLY_NO_AUTO_PUBLISH",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-approved",
+      "name": "Ready for Manual Export",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1980,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Weekly Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Radar Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Request": {
+      "main": [
+        [
+          {
+            "node": "Start GitHub Radar Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start GitHub Radar Job": {
+      "main": [
+        [
+          {
+            "node": "Init Poll State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Poll State": {
+      "main": [
+        [
+          {
+            "node": "Wait 15s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 15s": {
+      "main": [
+        [
+          {
+            "node": "Poll Radar Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Radar Status": {
+      "main": [
+        [
+          {
+            "node": "Update Poll Counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Poll Counter": {
+      "main": [
+        [
+          {
+            "node": "Job Completed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Completed?": {
+      "main": [
+        [
+          {
+            "node": "Build Review Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Failed or Timed Out?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failed or Timed Out?": {
+      "main": [
+        [
+          {
+            "node": "Log Failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 15s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Review Summary": {
+      "main": [
+        [
+          {
+            "node": "Human Review Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Human Review Gate": {
+      "main": [
+        [
+          {
+            "node": "Need Voice Swap Re-render?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need Voice Swap Re-render?": {
+      "main": [
+        [
+          {
+            "node": "Trigger Voice Swap Re-render",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ready for Manual Export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Voice Swap Re-render": {
+      "main": [
+        [
+          {
+            "node": "Wait 15s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
