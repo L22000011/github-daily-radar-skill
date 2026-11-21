@@ -104,12 +104,12 @@ python -u scripts/server.py
 
 ## 输出目录结构
 
-每次运行会在 `./output/github_radar_<period>_<timestamp>/` 生成完整可追溯交付包：
+每次运行会在 `./output/github_radar_<period>_<timestamp>/` 生成完整可追溯交付包（如传入 `--deliver-dir <dir>` 会同步交付到指定目录）：
 
-- `final_9x16_clean.mp4` / `final_9x16_captioned.mp4` —— 交付主成片（带烧录三色高亮字幕，1080×1920 30fps）
-- `final_9x16_no_subtitles.mp4` —— 无字幕纯净母版（适合剪映二次创作）
-- `final_subtitles.srt` / `final_subtitles.ass` —— 字级同步外挂字幕
-- `cover_9x16.png` / `cover_3x4.png` —— 竖屏与小红书图文双版封面
+- `9x16-<YYYYMMDD>.mp4` —— 交付主成片（带烧录三色高亮字幕，1080×1920 30fps）
+- `9x16-<YYYYMMDD>_no_subtitles.mp4` —— 无字幕纯净母版（适合剪映二次创作）
+- `9x16-<YYYYMMDD>.srt` / `9x16-<YYYYMMDD>.ass` —— 字级同步外挂字幕
+- `9x16-<YYYYMMDD>.png` / `3x4-<YYYYMMDD>.png` —— 9:16 竖屏与 3:4 小红书图文双版封面
 - `qa_report.json` / `QA_REPORT.md` + `qa_frames/` —— 12 项自动质检报告与 8 张关键帧截图
 - `facts.md` / `sources.md` / `trending_report.json` / `storyboard.json` —— 完整数据与出处台账
 - `voice_recording_sheet.md` / `voice_override/` —— 真人配音替换对照表

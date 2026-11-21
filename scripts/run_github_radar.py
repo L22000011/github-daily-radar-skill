@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -46,9 +47,8 @@ def write_review_checklist(
         "",
         "## 交付文件一览",
         "",
-        f"- 带烧录高亮字幕成片 (9:16): [{Path(manifest['outputs']['final_9x16_captioned']).name}](./{Path(manifest['outputs']['final_9x16_captioned']).name})",
-        f"- 带烧录高亮字幕成片副本 (9:16 交付主文件): [{Path(manifest['outputs']['final_9x16_clean']).name}](./{Path(manifest['outputs']['final_9x16_clean']).name})",
-        f"- 无字幕母版 (9:16, 适合剪映二次精修): [{Path(manifest['outputs'].get('final_9x16_no_subtitles') or 'final_9x16_no_subtitles.mp4').name}](./{Path(manifest['outputs'].get('final_9x16_no_subtitles') or 'final_9x16_no_subtitles.mp4').name})",
+        f"- 带烧录高亮字幕成片 (9:16 交付主文件): [{Path(manifest['outputs']['final_9x16_clean']).name}](./{Path(manifest['outputs']['final_9x16_clean']).name})",
+        f"- 无字幕母版 (9:16, 适合剪映二次精修): [{Path(manifest['outputs']['final_9x16_no_subtitles']).name}](./{Path(manifest['outputs']['final_9x16_no_subtitles']).name})",
         f"- SRT 外挂字幕: [{Path(manifest['outputs']['srt_path']).name}](./{Path(manifest['outputs']['srt_path']).name})",
         f"- 竖屏封面 (9:16): [{Path(manifest['outputs']['cover_9x16']).name}](./{Path(manifest['outputs']['cover_9x16']).name})",
         f"- 小红书/图文封面 (3:4): [{Path(manifest['outputs']['cover_3x4']).name}](./{Path(manifest['outputs']['cover_3x4']).name})",
@@ -123,6 +123,7 @@ def main() -> int:
     parser.add_argument("--voice-dir", help="Optional directory containing human voice recordings")
     parser.add_argument("--stage", choices=("all", "fetch", "script", "render"), default="all", help="Pipeline stage(s)")
     parser.add_argument("--out-dir", help="Output run directory")
+    parser.add_argument("--deliver-dir", help="Optional directory to copy final 9x16-YYYYMMDD deliverables into")
 
     args = parser.parse_args()
     top_n = max(1, min(10, args.top_n))
@@ -223,9 +224,18 @@ def main() -> int:
     (out_dir / "radar_manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     checklist_path = write_review_checklist(manifest, report, storyboard, qa_report, out_dir)
 
+    if args.deliver_dir:
+        deliver_dir = Path(args.deliver_dir)
+        deliver_dir.mkdir(parents=True, exist_ok=True)
+        for key in ("final_9x16_clean", "final_9x16_no_subtitles", "srt_path", "cover_9x16", "cover_3x4"):
+            src_file = Path(render_outputs[key])
+            if src_file.is_file():
+                shutil.copy2(src_file, deliver_dir / src_file.name)
+        print(f"  Delivered To  : {deliver_dir}")
+
     print(f"\n[done] GitHub Radar V3 completed in {elapsed}s (video={final_dur}s, qa_passed={qa_report['all_passed']})")
-    print(f"  Captioned MP4 : {render_outputs['final_9x16_captioned']}")
-    print(f"  Clean MP4     : {render_outputs['final_9x16_clean']}")
+    print(f"  Main MP4      : {render_outputs['final_9x16_clean']}")
+    print(f"  No-Sub MP4    : {render_outputs['final_9x16_no_subtitles']}")
     print(f"  SRT           : {render_outputs['srt_path']}")
     print(f"  Covers        : {render_outputs['cover_9x16']} | {render_outputs['cover_3x4']}")
     print(f"  QA Report     : {out_dir / 'QA_REPORT.md'}")

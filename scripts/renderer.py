@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import html
 import json
 import math
@@ -1101,7 +1102,18 @@ body {{ width: {width}px; height: {height}px; position: relative; background: #0
 </body></html>"""
 
 
+def resolve_output_date_tag(storyboard: dict[str, Any], report: dict[str, Any] | None = None) -> str:
+    """Return compact YYYYMMDD issue date tag from date_range_display (trailing date if range)."""
+    disp = str(storyboard.get("date_range_display") or (report or {}).get("date_range_display") or "")
+    matches = re.findall(r"(20\d{2})[.\-/]?(\d{2})[.\-/]?(\d{2})", disp)
+    if matches:
+        y, m, d = matches[-1]
+        return f"{y}{m}{d}"
+    return dt.datetime.now().strftime("%Y%m%d")
+
+
 def _render_html_pngs(storyboard: dict[str, Any], out_dir: Path) -> dict[str, dict[str, Path]]:
+    date_tag = resolve_output_date_tag(storyboard)
     frames_dir = out_dir / "frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
     rendered: dict[str, dict[str, Path]] = {
@@ -1162,13 +1174,13 @@ def _render_html_pngs(storyboard: dict[str, Any], out_dir: Path) -> dict[str, di
                     rendered["segments"][seg_id] = out_png
 
             page.set_viewport_size({"width": 1080, "height": 1920})
-            cover_9_16 = out_dir / "cover_9x16.png"
+            cover_9_16 = out_dir / f"9x16-{date_tag}.png"
             page.set_content(_build_cover_html(storyboard, 1080, 1920))
             page.screenshot(path=str(cover_9_16))
             rendered["covers"]["cover_9x16"] = cover_9_16
 
             page.set_viewport_size({"width": 1080, "height": 1440})
-            cover_3_4 = out_dir / "cover_3x4.png"
+            cover_3_4 = out_dir / f"3x4-{date_tag}.png"
             page.set_content(_build_cover_html(storyboard, 1080, 1440))
             page.screenshot(path=str(cover_3_4))
             rendered["covers"]["cover_3x4"] = cover_3_4
@@ -1460,11 +1472,12 @@ def _write_subtitles(storyboard: dict[str, Any], audio_manifest: dict[str, Any],
         if all_cues[i]["end"] <= all_cues[i]["start"]:
             all_cues[i]["end"] = round(all_cues[i]["start"] + 0.22, 3)
 
+    date_tag = resolve_output_date_tag(storyboard)
     srt_blocks = [
         f"{idx}\n{_format_srt_ts(c['start'])} --> {_format_srt_ts(c['end'])}\n{c['text']}\n"
         for idx, c in enumerate(all_cues, start=1)
     ]
-    srt_path = out_dir / "final_subtitles.srt"
+    srt_path = out_dir / f"9x16-{date_tag}.srt"
     srt_path.write_text("\n".join(srt_blocks), encoding="utf-8")
 
     ass_header = f"""[Script Info]
@@ -1486,7 +1499,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         f"Dialogue: 0,{_format_ass_ts(c['start'])},{_format_ass_ts(c['end'])},Default,,0,0,0,,{_highlight_ass_terms(c['text'])}"
         for c in all_cues
     ]
-    ass_path = out_dir / "final_subtitles.ass"
+    ass_path = out_dir / f"9x16-{date_tag}.ass"
     ass_path.write_text(ass_header + "\n".join(events) + "\n", encoding="utf-8")
     return srt_path, ass_path, len(all_cues)
 
@@ -1656,7 +1669,8 @@ def render_video(
     concat_list = parts_dir / "concat.txt"
     concat_list.write_text("\n".join(f"file '{p.as_posix()}'" for p in part_mp4s), encoding="utf-8")
 
-    no_sub_mp4 = out_dir / "final_9x16_no_subtitles.mp4"
+    date_tag = resolve_output_date_tag(storyboard, report)
+    no_sub_mp4 = out_dir / f"9x16-{date_tag}_no_subtitles.mp4"
     total_dur = float(audio_manifest["total_duration_sec"])
 
     sfx_wav = out_dir / "audio" / "sfx_mix.wav"
@@ -1670,7 +1684,7 @@ def render_video(
         fade_out_st = max(0.0, total_dur - 1.5)
         bgm_dur_str = f"{total_dur + 0.25:.3f}"
         if sfx_ok:
-            print(f"[render] Mixing normalized voice + Mixkit BGM ({bgm_src.name}) + layered transition SFX -> final_9x16_no_subtitles.mp4...")
+            print(f"[render] Mixing normalized voice + Mixkit BGM ({bgm_src.name}) + layered transition SFX -> {no_sub_mp4.name}...")
             _run_ffmpeg(
                 [
                     "-y",
@@ -1691,7 +1705,7 @@ def render_video(
                 cwd=out_dir,
             )
         else:
-            print(f"[render] Mixing normalized voice + BGM ({bgm_src.name}) -> final_9x16_no_subtitles.mp4...")
+            print(f"[render] Mixing normalized voice + BGM ({bgm_src.name}) -> {no_sub_mp4.name}...")
             _run_ffmpeg(
                 [
                     "-y",
@@ -1710,7 +1724,7 @@ def render_video(
                 cwd=out_dir,
             )
     else:
-        print("[render] Concatenating & normalizing audio (no BGM) -> final_9x16_no_subtitles.mp4...")
+        print(f"[render] Concatenating & normalizing audio (no BGM) -> {no_sub_mp4.name}...")
         _run_ffmpeg(
             [
                 "-y",
@@ -1725,8 +1739,8 @@ def render_video(
         )
 
     srt_path, ass_path, cue_count = _write_subtitles(storyboard, audio_manifest, out_dir)
-    captioned_mp4 = out_dir / "final_9x16_captioned.mp4"
-    print("[render] Burning prominent bold tri-color ASS subtitles -> final_9x16_captioned.mp4...")
+    captioned_mp4 = out_dir / f"9x16-{date_tag}.mp4"
+    print(f"[render] Burning prominent bold tri-color ASS subtitles -> {captioned_mp4.name}...")
     _run_ffmpeg(
         [
             "-y",
@@ -1740,15 +1754,12 @@ def render_video(
         cwd=out_dir,
     )
 
-    clean_mp4 = out_dir / "final_9x16_clean.mp4"
-    shutil.copy2(captioned_mp4, clean_mp4)
-    print("[render] Synced subtitled clean delivery file -> final_9x16_clean.mp4")
-
     _append_audio_attribution(out_dir, used_mixkit_bgm=used_mixkit_bgm, used_sfx=sfx_ok)
     handoff_dir = _export_talkcraft_handoff(report, storyboard, out_dir)
     return {
+        "video_main": str(captioned_mp4),
         "final_9x16_captioned": str(captioned_mp4),
-        "final_9x16_clean": str(clean_mp4),
+        "final_9x16_clean": str(captioned_mp4),
         "final_9x16_no_subtitles": str(no_sub_mp4),
         "srt_path": str(srt_path),
         "ass_path": str(ass_path),

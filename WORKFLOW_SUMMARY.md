@@ -121,7 +121,7 @@ V3 引擎彻底升级了视觉质感与动效节奏：
 4. **集成白底薄荷绿底盒三色高亮动态字幕**：
    - 将 ASS 字幕精确定位到卡片底部集成纯白字幕槽区域，配 `80ms` 轻微弹性缩放弹出（`\fscx96\fscy96\t(0,80,\fscx100\fscy100)`）。
    - 单次合并正则 `_ASS_HL_RE` 同步高亮绿色技术名词与橙红色 Star/排名数字，防止转义标签被二次污染。
-   - 渲染输出双版本母版：**`final_9x16_no_subtitles.mp4`**（无字幕纯净版，便于剪映精修）+ **`final_9x16_captioned.mp4`** & **`final_9x16_clean.mp4`**（烧录动态高亮字幕交付主文件）+ `cover_9x16.png` + `cover_3x4.png` + `talkcraft_handoff/`。
+   - 渲染输出双版本母版：**`9x16-<YYYYMMDD>_no_subtitles.mp4`**（无字幕纯净版，便于剪映精修）+ **`9x16-<YYYYMMDD>.mp4`**（烧录动态高亮字幕交付主文件）+ `9x16-<YYYYMMDD>.png` + `3x4-<YYYYMMDD>.png` + `talkcraft_handoff/`（可通过 `--deliver-dir` 自动同步拷贝一份到指定交付目录）。
 
 ---
 
@@ -140,15 +140,15 @@ V3 引擎彻底升级了视觉质感与动效节奏：
 9. `srt_exact_text_match`：字幕归一化文本与口播稿一致率 `>= 0.99`（理想 `1.0`）
 10. `facts_consistent`：所有项目 Star 总数/增量与抓包原始数据完全一致
 11. `no_noassertion_leak`：台账、字幕、画面绝无原始 `NOASSERTION` 泄露
-12. `clean_mp4_matches_captioned`：主交付文件 `final_9x16_clean.mp4` 与 `final_9x16_captioned.mp4` 完全一致且有效
+12. `clean_mp4_matches_captioned`：主交付文件 `9x16-<YYYYMMDD>.mp4` 字节一致性与 1080×1920 H.264/AAC 流参数有效
 
 ---
 
 ### Stage 7：人工审核门禁与发布交付（`REVIEW_CHECKLIST.md`）
 
 1. 检查输出目录中的核心交付物：
-   - 成片主文件：`final_9x16_clean.mp4`（同时保留无字幕母版 `final_9x16_no_subtitles.mp4` 与外挂 `final_subtitles.srt`）
-   - 双平台封面：`cover_9x16.png`（抖音/视频号/B站）+ `cover_3x4.png`（小红书图文/笔记）
+   - 成片主文件：`9x16-<YYYYMMDD>.mp4`（同时保留无字幕母版 `9x16-<YYYYMMDD>_no_subtitles.mp4` 与外挂 `9x16-<YYYYMMDD>.srt`）
+   - 双平台封面：`9x16-<YYYYMMDD>.png`（9:16 竖屏封面）+ `3x4-<YYYYMMDD>.png`（3:4 小红书图文/笔记）
    - 核验台账：`facts.md` · `sources.md` · `REVIEW_CHECKLIST.md` · `QA_REPORT.md`
 2. **如需真人配音替换**：按 `voice_recording_sheet.md` 将录音（如 `seg_01_superpowers.wav`）放入 `voice_override/`，加 `--stage render --voice-dir ...` 秒级重新合成。
 3. **手动发布文案与置顶评论**：结合当日 `facts.md` 生成精炼短视频文案 + **单独分栏的评论区 5 个 GitHub 仓库直达链接**，人工确认后上传。

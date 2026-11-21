@@ -15,7 +15,7 @@
 | 9 | `srt_exact_text_match` | 归一化文本匹配度 `== 1.0`（最低 `0.99`） | 防止语音与字幕各自用两套文案 |
 | 10 | `facts_consistent` | 全部 repo `stars_delta` 与 `stargazers_count` 全等 | 防止 AI 幻觉改写数据 |
 | 11 | `no_noassertion_leak` | `0` 处 `NOASSERTION` 出现在卡片/归属字段 | 避免直接把 GitHub 原始占位符渲染上屏 |
-| 12 | `clean_mp4_matches_captioned` | 字节数与流参数完全一致 | 保证交付主文件与带字幕审核版 100% 同一母版 |
+| 12 | `clean_mp4_matches_captioned` | 字节数与流参数完全一致 | 保证主交付文件 `9x16-YYYYMMDD.mp4` 与规格检查一致性 |
 
 ---
 

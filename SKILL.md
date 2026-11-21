@@ -31,11 +31,12 @@ Run commands using relative paths from the skill root (or pass `--out-dir` expli
 ### 1. Daily Video (New Episode · Recommended)
 
 ```bash
-python -u ./scripts/run_github_radar.py --period daily --top-n 5 --focus ai-dev --dedupe-days 7
+python -u ./scripts/run_github_radar.py --period daily --top-n 5 --focus ai-dev --dedupe-days 7 --deliver-dir ./delivered
 ```
 
 - Use `--top-n 3` for a concise 45–75s daily bulletin, or `--top-n 5` for a richer 90–145s deep-dive.
 - `--dedupe-days 7` softly avoids repeating repos featured in `output/history/trending_snapshots.jsonl` over the last 7 days.
+- `--deliver-dir` (optional) copies `9x16-YYYYMMDD.mp4`, `9x16-YYYYMMDD_no_subtitles.mp4`, `9x16-YYYYMMDD.srt`, `9x16-YYYYMMDD.png`, and `3x4-YYYYMMDD.png` cleanly into your target folder.
 
 ### 2. Weekly Roundup Video
 
@@ -64,7 +65,7 @@ Import `./references/n8n-github-trending-pipeline.json` into n8n (`Schedule Trig
 Never declare a rendered video ready solely from exit codes:
 
 1. Inspect `<out_dir>/qa_report.json` and confirm `"all_passed": true` across all 12 checks (`resolution_1080x1920`, `av_sync_under_0_35s`, `no_black_frames`, `no_long_silence`, `audible_mean_volume`, `srt_zero_overlaps`, `srt_no_broken_tokens`, `srt_exact_text_match`, `facts_consistent`, `no_noassertion_leak`, `clean_mp4_matches_captioned`, `codecs_h264_aac`).
-2. Inspect all generated preview frames (`<out_dir>/qa_frames/frame_01_hook.png` through `frame_07_outro_ranking.png`, `<out_dir>/cover_9x16.png`, and `<out_dir>/cover_3x4.png`) using `read_file` to verify:
+2. Inspect all generated preview frames (`<out_dir>/qa_frames/frame_01_hook.png` through `frame_07_outro_ranking.png`, `<out_dir>/9x16-<YYYYMMDD>.png`, and `<out_dir>/3x4-<YYYYMMDD>.png`) using `read_file` to verify:
    - Dynamic top/bottom dot-wave margin layout frames cleanly around the central white card.
    - Real repo screenshots/videos fit without clipping or overlaid UI clutter.
    - Large mint-pill subtitles are centered in the bottom card subtitle slot with clean line breaks and zero mid-word tears.
@@ -74,7 +75,7 @@ Never declare a rendered video ready solely from exit codes:
 
 After QA and visual review pass:
 
-1. Deliver `<out_dir>/final_9x16_clean.mp4` (and note `<out_dir>/final_9x16_no_subtitles.mp4`, `final_subtitles.srt`, `cover_9x16.png`, `cover_3x4.png`). If the user asked for the file in a specific workspace directory, copy it there and keep `<out_dir>` intact for traceability.
+1. Deliver `<out_dir>/9x16-<YYYYMMDD>.mp4` (and note `9x16-<YYYYMMDD>_no_subtitles.mp4`, `9x16-<YYYYMMDD>.srt`, `9x16-<YYYYMMDD>.png`, `3x4-<YYYYMMDD>.png`). You can pass `--deliver-dir <target_dir>` on CLI to copy all 5 deliverables cleanly while keeping `<out_dir>` intact for traceability.
 2. Read `<out_dir>/facts.md` and `<out_dir>/trending_report.json`, then generate:
    - **Short video publish copy** (concise platform caption + tags)
    - **Separated pinned-comment GitHub links block** (exact `#1`–`#N` `https://github.com/<owner>/<repo>` URLs strictly copied from `facts.md`)
