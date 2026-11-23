@@ -328,7 +328,7 @@ def score_and_select(
         delta_norm = (r["stars_delta"] / max_delta) * 100.0
         kw_count = len(r["matched_ai_dev_keywords"])
         demo_bonus = 6.0 if r.get("media_candidates") else 0.0
-        dedupe_penalty = 25.0 if r["full_name"] in recent_selected else 0.0
+        dedupe_penalty = 45.0 if r["full_name"] in recent_selected else 0.0
 
         if focus == "all":
             score = float(r["stars_delta"]) - (dedupe_penalty * 20.0)
@@ -588,8 +588,9 @@ def run_fetch(
     dedupe_days: int = 0,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
-    print(f"[fetch] Scraping GitHub Trending ({period}, focus={focus}, top_n={top_n})...")
-    raw_top10 = scrape_trending(period=period, limit=10)
+    scrape_limit = 20 if dedupe_days > 0 else 10
+    print(f"[fetch] Scraping GitHub Trending ({period}, focus={focus}, top_n={top_n}, pool={scrape_limit})...")
+    raw_top10 = scrape_trending(period=period, limit=scrape_limit)
     enriched = []
     for row in raw_top10:
         print(f"  [gh] Enriching #{row['trending_rank']} {row['full_name']} (+{row['stars_delta']})...")
